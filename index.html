@@ -1391,4 +1391,121 @@ function buildFichaInvitadoOptions() {
   )].sort((a, b) => a.localeCompare(b, 'es'));
 
   select.innerHTML = '<option value="">Todos los entrevistados</option>' +
-    invitados.map(inv => `<option value="${escapeHtml(inv)}">${escapeHtml(inv)}</op
+    invitados.map(inv => `<option value="${escapeHtml(inv)}">${escapeHtml(inv)}</option>`).join('');
+}
+
+function buildFichaPotencialChips() {
+  const container = document.getElementById('ficha-potencial-chips');
+  const opciones = [
+    { key: 'alto', label: 'Alto' },
+    { key: 'medio', label: 'Medio' },
+    { key: 'bajo', label: 'Bajo' },
+    { key: 'na', label: 'N/D' }
+  ];
+  container.innerHTML = '';
+  const allChip = document.createElement('div');
+  allChip.className = 'chip active';
+  allChip.textContent = 'Todos';
+  allChip.onclick = () => { fichaPotencialFilter = null; renderFichas(); refreshFichaChips(); };
+  container.appendChild(allChip);
+  opciones.forEach(opt => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.textContent = opt.label;
+    chip.dataset.potencial = opt.key;
+    chip.onclick = () => {
+      fichaPotencialFilter = (fichaPotencialFilter === opt.key) ? null : opt.key;
+      renderFichas();
+      refreshFichaChips();
+    };
+    container.appendChild(chip);
+  });
+}
+
+function refreshFichaChips() {
+  const chips = document.querySelectorAll('#ficha-potencial-chips .chip');
+  chips.forEach(chip => {
+    if (!chip.dataset.potencial) {
+      chip.classList.toggle('active', fichaPotencialFilter === null);
+    } else {
+      chip.classList.toggle('active', chip.dataset.potencial === fichaPotencialFilter);
+    }
+  });
+}
+
+function getFilteredFichas() {
+  const invitado = document.getElementById('ficha-invitado-filter').value;
+  const tema = document.getElementById('ficha-tema-filter').value.toLowerCase().trim();
+  const dateFrom = document.getElementById('ficha-date-from').value;
+  const dateTo = document.getElementById('ficha-date-to').value;
+
+  return ALL_FICHAS.filter(f => {
+    if (invitado && f.invitado !== invitado) return false;
+    if (fichaPotencialFilter && potencialClass(f.potencial) !== fichaPotencialFilter) return false;
+    if (dateFrom && f.fecha_emision < dateFrom) return false;
+    if (dateTo && f.fecha_emision > dateTo) return false;
+    if (tema) {
+      const searchIn = [f.titulo, f.tema, f.invitado, f.contenido].join(' ').toLowerCase();
+      if (!searchIn.includes(tema)) return false;
+    }
+    return true;
+  });
+}
+
+function renderFichas() {
+  const filtered = getFilteredFichas();
+  const list = document.getElementById('fichas-list');
+  const countEl = document.getElementById('fichas-results-count');
+  countEl.textContent = `Mostrando ${filtered.length} de ${ALL_FICHAS.length} fichas`;
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="no-results"><span class="icon">&#128269;</span>No se encontraron fichas con esos criterios.</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map((f) => {
+    const potClass = potencialClass(f.potencial);
+    const potLabel = f.potencial || 'N/D';
+    return `
+    <div class="ficha-card" id="ficha-${f.uid}">
+      <div class="ficha-card-header">
+        <div class="card-meta">
+          <span class="badge badge-day">${escapeHtml(f.dia_semana || '')}</span>
+          <span class="badge badge-date">${formatDate(f.fecha_emision)}</span>
+          <span class="badge badge-potencial-${potClass}">${escapeHtml(potLabel)}</span>
+          ${f.seleccionada ? '<span class="badge badge-potencial-alto">Seleccionada</span>' : ''}
+        </div>
+        <div class="card-title">${escapeHtml(f.titulo || '')}</div>
+        <div class="card-guest">${escapeHtml(f.invitado || '')}${f.rango ? ' <span class="ficha-rango">&middot; ' + escapeHtml(f.rango) + '</span>' : ''}</div>
+      </div>
+      <div class="ficha-card-body md" id="ficha-body-${f.uid}">${mdToHtml(f.contenido || '')}</div>
+      <div class="ficha-expand-wrap">
+        <button class="ficha-expand-btn" onclick="toggleFicha('${f.uid}')" id="ficha-btn-${f.uid}">Ver ficha completa</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleFicha(uid) {
+  const body = document.getElementById('ficha-body-' + uid);
+  const btn = document.getElementById('ficha-btn-' + uid);
+  if (!body || !btn) return;
+  const expanded = body.classList.toggle('expanded');
+  btn.textContent = expanded ? 'Ver menos' : 'Ver ficha completa';
+  if (!expanded) {
+    document.getElementById('ficha-' + uid).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function clearFichaFilters() {
+  document.getElementById('ficha-invitado-filter').value = '';
+  document.getElementById('ficha-tema-filter').value = '';
+  document.getElementById('ficha-date-from').value = '';
+  document.getElementById('ficha-date-to').value = '';
+  fichaPotencialFilter = null;
+  refreshFichaChips();
+  renderFichas();
+}
+</script>
+</body>
+</html>
